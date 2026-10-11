@@ -40,6 +40,239 @@
         </div>
     </div>
 
+    <!-- Category Tabs (6 Categories) -->
+    <div class="flex justify-start sm:justify-center gap-2 my-4 px-4 overflow-x-auto pb-2">
+        <button onclick="filterCategory('Cloths')" id="btnCloths" class="px-4 py-2 rounded-full font-bold bg-blue-900 text-white shadow text-xs whitespace-nowrap">Cloths</button>
+        <button onclick="filterCategory('Electronics')" id="btnElectronics" class="px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap">Electronics</button>
+        <button onclick="filterCategory('Kitchen')" id="btnKitchen" class="px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap">Kitchen</button>
+        <button onclick="filterCategory('Decoration')" id="btnDecoration" class="px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap">Decoration</button>
+        <button onclick="filterCategory('Skin Care')" id="btnSkinCare" class="px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap">Skin Care</button>
+        <button onclick="filterCategory('Body Supplement')" id="btnBodySupplement" class="px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap">Body Supplement</button>
+    </div>
+
+    <!-- Product Grid -->
+    <main id="productGrid" class="grid grid-cols-2 gap-4 px-4 max-w-lg mx-auto">
+        <!-- Products will load here automatically -->
+    </main>
+
+    <!-- Admin Modal -->
+    <div id="adminModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4 text-blue-900">Admin Panel - APUFA Mart</h2>
+            <div id="adminLoginForm">
+                <input type="email" id="adminEmail" placeholder="Admin Email" class="w-full border p-2 mb-2 rounded text-sm">
+                <input type="password" id="adminPassword" placeholder="Password" class="w-full border p-2 mb-4 rounded text-sm">
+                <button onclick="loginAdmin()" class="w-full bg-blue-900 text-white py-2 rounded font-bold text-sm">Login</button>
+            </div>
+            <div id="adminUploadForm" class="hidden">
+                <p class="text-green-600 font-semibold mb-2 text-sm">✓ Logged in as Admin</p>
+                <input type="text" id="pTitle" placeholder="Product Name" class="w-full border p-2 mb-2 rounded text-sm">
+                <select id="pCategory" class="w-full border p-2 mb-2 rounded text-sm">
+                    <option value="Cloths">Cloths</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Kitchen">Kitchen</option>
+                    <option value="Decoration">Decoration</option>
+                    <option value="Skin Care">Skin Care</option>
+                    <option value="Body Supplement">Body Supplement</option>
+                </select>
+                <input type="number" id="pPrice" placeholder="Price (Rs)" class="w-full border p-2 mb-2 rounded text-sm">
+                <input type="text" id="pStock" placeholder="Stock Status (e.g. In Stock / Available)" value="In Stock" class="w-full border p-2 mb-2 rounded text-sm">
+                <textarea id="pDesc" placeholder="Variations / Details (e.g. Size, Color)" class="w-full border p-2 mb-2 rounded text-sm"></textarea>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Select Image from Gallery:</label>
+                <input type="file" id="pImage" accept="image/*" class="w-full border p-2 mb-4 rounded text-sm">
+                <button onclick="uploadProduct()" class="w-full bg-orange-500 text-white py-2 rounded font-bold text-sm mb-2 hover:bg-orange-600">Publish Product</button>
+                <button onclick="logoutAdmin()" class="w-full bg-gray-400 text-white py-2 rounded font-bold text-sm">Logout</button>
+            </div>
+            <button onclick="toggleAdminModal()" class="w-full mt-4 text-gray-500 text-sm">Close</button>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        const SUPABASE_URL = "https://woysdrxjhraiyzjdufvh.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndveXNkcnhqaHJhaXl6amR1ZnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MzE5MTEsImV4cCI6MjEwNzMwNzkxMX0.EdapwE_Fl6AHyZ-KDGMJecTy_Hle6YiMOFT5KzinEVU";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentCategory = 'Cloths';
+        let deferredPrompt = null;
+        let isAdminLoggedIn = false;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBanner').classList.remove('hidden');
+        });
+
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('installBanner').classList.add('hidden');
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+        }
+
+        async function loginAdmin() {
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                alert('Login Failed: ' + error.message);
+            } else {
+                isAdminLoggedIn = true;
+                alert('Login Successful!');
+                document.getElementById('adminLoginForm').classList.add('hidden');
+                document.getElementById('adminUploadForm').classList.remove('hidden');
+                loadProducts();
+            }
+        }
+
+        async function logoutAdmin() {
+            await supabaseClient.auth.signOut();
+            isAdminLoggedIn = false;
+            document.getElementById('adminLoginForm').classList.remove('hidden');
+            document.getElementById('adminUploadForm').classList.add('hidden');
+            alert('Logged out');
+            loadProducts();
+        }
+
+        function filterCategory(cat) {
+            currentCategory = cat;
+            ['Cloths', 'Electronics', 'Kitchen', 'Decoration', 'Skin Care', 'Body Supplement'].forEach(c => {
+                const btnId = 'btn' + c.replace(/\s+/g, '');
+                const btn = document.getElementById(btnId);
+                if(btn) {
+                    if(c === cat) {
+                        btn.className = "px-4 py-2 rounded-full font-bold bg-blue-900 text-white shadow text-xs whitespace-nowrap";
+                    } else {
+                        btn.className = "px-4 py-2 rounded-full font-bold bg-gray-200 text-gray-700 text-xs whitespace-nowrap";
+                    }
+                }
+            });
+            loadProducts();
+        }
+
+        async function loadProducts() {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '<p class="col-span-2 text-center text-gray-500 py-10 text-sm">Loading products...</p>';
+            
+            const { data, error } = await supabaseClient
+                .from('products')
+                .select('*')
+                .eq('category', currentCategory)
+                .order('id', { ascending: false });
+
+            if (error) {
+                grid.innerHTML = '<p class="col-span-2 text-center text-red-500 text-sm">Error loading products</p>';
+                return;
+            }
+
+            if (data.length === 0) {
+                grid.innerHTML = '<p class="col-span-2 text-center text-gray-500 py-10 text-sm">No products found in this category.</p>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            data.forEach(p => {
+                const imgTag = (p.images && p.images.length > 0 && p.images[0]) 
+                    ? `<img src="${p.images[0]}" alt="${p.title}" class="w-full h-48 object-cover cursor-pointer hover:scale-105 transition" onclick="window.open('${p.images[0]}', '_blank')">`
+                    : `<div class="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400 text-xs">No Image</div>`;
+
+                const whatsappMsg = encodeURIComponent(`Salam! Mujhe APUFA Mart se yeh product order karna hai:\nProduct: ${p.title}\nPrice: Rs. ${p.price}\nStock: ${p.stock || 'In Stock'}\nDetails: ${p.description}`);
+                
+                let deleteBtn = isAdminLoggedIn ? `<button onclick="deleteProduct(${p.id})" class="mt-2 w-full bg-red-500 text-white py-1 rounded text-xs font-bold hover:bg-red-600">🗑️ Delete Product</button>` : '';
+
+                grid.innerHTML += `
+                    <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col justify-between p-2">
+                        <div>
+                            ${imgTag}
+                            <div class="p-2">
+                                <h3 class="font-bold text-gray-800 text-sm mb-1">${p.title}</h3>
+                                <p class="text-xs text-gray-500 mb-1">${p.description || ''}</p>
+                                <p class="text-xs text-green-600 font-semibold mb-2">📦 ${p.stock || 'In Stock'}</p>
+                                <p class="text-blue-900 font-extrabold text-sm mb-2">Rs. ${p.price}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <a href="https://wa.me/923339998286?text=${whatsappMsg}" target="_blank" class="block text-center bg-green-500 text-white py-2 rounded text-xs font-bold shadow hover:bg-green-600">Order via WhatsApp</a>
+                            ${deleteBtn}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function uploadProduct() {
+            const title = document.getElementById('pTitle').value;
+            const category = document.getElementById('pCategory').value;
+            const price = document.getElementById('pPrice').value;
+            const stock = document.getElementById('pStock').value;
+            const description = document.getElementById('pDesc').value;
+            const fileInput = document.getElementById('pImage');
+
+            if (!title || !price || fileInput.files.length === 0) {
+                alert('Please fill title, price and select an image from gallery!');
+                return;
+            }
+
+            alert('Uploading image from gallery, please wait...');
+            const file = fileInput.files[0];
+            const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9_.-]/g, '');
+
+            const { data, error } = await supabaseClient.storage.from('product-images').upload(fileName, file);
+            
+            if (error) {
+                alert('Image Upload Error: ' + error.message);
+                return;
+            }
+
+            const publicUrl = `https://woysdrxjhraiyzjdufvh.supabase.co/storage/v1/object/public/product-images/${fileName}`;
+
+            const { error: dbError } = await supabaseClient.from('products').insert([
+                { title, category, price: parseFloat(price), stock, description, images: [publicUrl] }
+            ]);
+
+            if (dbError) {
+                alert('Error saving product: ' + dbError.message);
+            } else {
+                alert('Product uploaded successfully!');
+                document.getElementById('pTitle').value = '';
+                document.getElementById('pPrice').value = '';
+                document.getElementById('pDesc').value = '';
+                document.getElementById('pImage').value = '';
+                toggleAdminModal();
+                loadProducts();
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('Kya aap waqai is product ko delete karna chahte hain?')) {
+                const { error } = await supabaseClient.from('products').delete().eq('id', id);
+                if (error) {
+                    alert('Error deleting product: ' + error.message);
+                } else {
+                    alert('Product deleted successfully!');
+                    loadProducts();
+                }
+            }
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>        <div class="max-w-md mx-auto flex flex-col items-center gap-2">
+            <p class="text-sm font-bold">📲 Mobile Screen Par APUFA Mart Lagayein!</p>
+            <button id="installBtn" class="bg-orange-500 text-white px-6 py-2 rounded-full text-sm font-extrabold shadow-md hover:bg-orange-600 active:scale-95 transition">✨ App Install Karein</button>
+        </div>
+    </div>
+
     <!-- Category Tabs (4 Categories) -->
     <div class="flex justify-start sm:justify-center gap-2 my-4 px-4 overflow-x-auto pb-2">
         <button onclick="filterCategory('Cloths')" id="btnCloths" class="px-4 py-2 rounded-full font-bold bg-blue-900 text-white shadow text-xs whitespace-nowrap">Cloths</button>
